@@ -107,6 +107,7 @@ app.post("/signup", async (req, res) => {
 // Login Route
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
+  console.log("email , password", email, password);
 
   // Query to check user in Hasura
   const query = `
