@@ -130,7 +130,7 @@ app.post("/login", async (req, res) => {
     });
     console.log("response", response);
 
-    const users = response.data.data.Users;
+    const users = response.data.Users;
 
     if (users.length === 0) {
       return res.status(400).json({
