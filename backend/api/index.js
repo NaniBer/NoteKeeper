@@ -127,6 +127,7 @@ app.post("/login", async (req, res) => {
         "x-hasura-admin-secret": process.env.HASURA_ADMIN_SECRET,
       },
     });
+    console.log("response", response);
 
     const users = response.data.data.Users;
 
