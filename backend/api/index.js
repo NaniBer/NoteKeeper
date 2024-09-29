@@ -100,15 +100,18 @@ app.post("/signup", async (req, res) => {
 // Login Route
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
+  console.log(email, password);
 
   // Find user by email
   const user = users.find((user) => user.email === email);
+  console.log(user);
   if (!user) {
     return res.status(400).json({ message: "Invalid email or password" });
   }
 
   // Compare password
   const validPassword = await bcrypt.compare(password, user.password);
+  console.log(validPassword);
   if (!validPassword) {
     return res.status(400).json({ message: "Invalid email or password" });
   }
@@ -123,6 +126,7 @@ app.post("/login", async (req, res) => {
       }
     );
 
+    console.log(token);
     // Send token back to client
     res.json({ token });
   } catch (error) {
