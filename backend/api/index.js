@@ -128,7 +128,7 @@ app.post("/login", async (req, res) => {
         "x-hasura-admin-secret": process.env.HASURA_ADMIN_SECRET,
       },
     });
-    console.log("response", response);
+    console.log("response", response.data?.errors);
 
     // Send token back to client
     return res.status(200).json({
