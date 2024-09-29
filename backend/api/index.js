@@ -128,13 +128,43 @@ app.post("/login", async (req, res) => {
         "x-hasura-admin-secret": process.env.HASURA_ADMIN_SECRET,
       },
     });
-    console.log("response", response.data?.errors);
+    console.log("response", response.response);
+
+    const users = response.response.data.Users;
+    console.log(users);
+
+    if (users.length === 0) {
+      return res.status(400).json({
+        response: {
+          message: "Invalid email or password",
+        },
+      });
+    }
+
+    const user = users[0];
+
+    // Compare password using bcrypt
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(400).json({
+        response: {
+          message: "Invalid email or password",
+        },
+      });
+    }
+
+    // Create JWT token
+    const token = jwt.sign(
+      { email: user.email, firstName: user.firstName },
+      JWT_SECRET,
+      { expiresIn: "1h" }
+    );
 
     // Send token back to client
     return res.status(200).json({
       response: {
         message: "Login successful",
-        token: "1234567890",
+        token,
       },
     });
   } catch (error) {
