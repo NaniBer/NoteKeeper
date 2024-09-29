@@ -27,7 +27,8 @@ const users = [];
 
 //signup
 app.post("/signup", async (req, res) => {
-  const { email, password, firstName } = req.body;
+  const { email, password, firstName, lastName } = req.body;
+  console.log(req.body);
 
   // Check if user already exists
   const existingUserQuery = {
@@ -50,6 +51,7 @@ app.post("/signup", async (req, res) => {
         },
       }
     );
+    console.log(existingUserResponse);
 
     if (existingUserResponse.data.data.users.length > 0) {
       return res.status(400).json({ message: "User already exists" });
@@ -62,7 +64,7 @@ app.post("/signup", async (req, res) => {
     const insertUserMutation = {
       query: `
         mutation {
-          insert_users(objects: { email: "${email}", password: "${hashedPassword}", first_name: "${firstName}" }) {
+          insert_users(objects: { email: "${email}", password: "${hashedPassword}", firstName: "${firstName}" , lastName:"${lastName}" }) {
             returning {
               id
             }
