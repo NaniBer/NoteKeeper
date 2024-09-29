@@ -134,6 +134,7 @@ app.post("/login", async (req, res) => {
     return res.status(200).json({
       response: {
         message: "Login successful",
+        token: "1234567890",
       },
     });
   } catch (error) {
