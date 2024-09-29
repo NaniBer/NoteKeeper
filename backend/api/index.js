@@ -100,38 +100,28 @@ app.post("/signup", async (req, res) => {
 // Login Route
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
-  console.log(email, password);
 
   // Find user by email
   const user = users.find((user) => user.email === email);
-  console.log(user);
   if (!user) {
-    return res.status(400).json({ message: "Invalid email or password" });
+    return res.status(400).json({ message: "Invalid email or password" }); // Ensure this returns an object with a message
   }
 
   // Compare password
   const validPassword = await bcrypt.compare(password, user.password);
-  console.log(validPassword);
   if (!validPassword) {
-    return res.status(400).json({ message: "Invalid email or password" });
+    return res.status(400).json({ message: "Invalid email or password" }); // Ensure this returns an object with a message
   }
 
   // Create JWT token
-  try {
-    const token = jwt.sign(
-      { email: user.email, firstName: user.firstName },
-      JWT_SECRET,
-      {
-        expiresIn: "1h",
-      }
-    );
+  const token = jwt.sign(
+    { email: user.email, firstName: user.firstName },
+    JWT_SECRET,
+    { expiresIn: "1h" }
+  );
 
-    console.log(token);
-    // Send token back to client
-    res.json({ token });
-  } catch (error) {
-    res.status(500).json({ message: "Error generating token" });
-  }
+  // Send token back to client
+  return res.status(200).json({ message: "Login successful", token }); // Include a message key here
 });
 
 app.get("/", async (req, res) => {
