@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs");
 const bodyParser = require("body-parser");
 const { Pool } = require("pg");
 const cors = require("cors");
+const axios = require("axios");
 
 const app = express();
 const PORT = 5000;
@@ -24,58 +25,109 @@ app.use(cors());
 // Sample user storage (replace this with a database in production)
 const users = [];
 
-// Signup Route
-// app.post("/signup", async (req, res) => {
-//   const { email, password, firstName, lastName } = req.body;
+//signup
+app.post("/signup", async (req, res) => {
+  const { email, password, firstName } = req.body;
 
-//   // Check if user exists
-//   const existingUser = users.find((user) => user.email === email);
-//   if (existingUser) {
-//     return res.status(400).json({ message: "User already exists" });
-//   }
+  // Check if user already exists
+  const existingUserQuery = {
+    query: `
+      query {
+        users(where: { email: { _eq: "${email}" } }) {
+          id
+        }
+      }
+    `,
+  };
 
-//   // Hash password before saving
-//   const hashedPassword = await bcrypt.hash(password, 10);
+  try {
+    const existingUserResponse = await axios.post(
+      process.env.HASURA_GRAPHQL_ENDPOINT,
+      existingUserQuery,
+      {
+        headers: {
+          "x-hasura-admin-secret": process.env.HASURA_ADMIN_SECRET,
+        },
+      }
+    );
 
-//   // Create new user and save to "database"
-//   const newUser = { email, password: hashedPassword, firstName, lastName };
-//   users.push(newUser);
+    if (existingUserResponse.data.data.users.length > 0) {
+      return res.status(400).json({ message: "User already exists" });
+    }
 
-//   // Create JWT token
-//   const token = jwt.sign({ email, firstName, lastName }, JWT_SECRET, {
-//     expiresIn: "1h", // Token expires in 1 hour
-//   });
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-//   // Send token back to client
-//   res.json({ token });
-// });
+    // Insert new user into Hasura
+    const insertUserMutation = {
+      query: `
+        mutation {
+          insert_users(objects: { email: "${email}", password: "${hashedPassword}", first_name: "${firstName}" }) {
+            returning {
+              id
+            }
+          }
+        }
+      `,
+    };
+
+    const insertUserResponse = await axios.post(
+      process.env.HASURA_GRAPHQL_ENDPOINT,
+      insertUserMutation,
+      {
+        headers: {
+          "x-hasura-admin-secret": process.env.HASURA_ADMIN_SECRET,
+        },
+      }
+    );
+
+    console.log(insertUserResponse);
+    console.log(insertUserResponse.data);
+
+    // Create JWT token
+    const token = jwt.sign({ email, firstName }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    // Send token back to client
+    res.status(201).json({ token });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error during signup process" });
+  }
+});
 
 // Login Route
 app.post("/login", async (req, res) => {
-  //   const { email, password } = req.body;
+  const { email, password } = req.body;
 
-  //   // Find user by email
-  //   const user = users.find((user) => user.email === email);
-  //   if (!user) {
-  //     return res.status(400).json({ message: "Invalid email or password" });
-  //   }
+  // Find user by email
+  const user = users.find((user) => user.email === email);
+  if (!user) {
+    return res.status(400).json({ message: "Invalid email or password" });
+  }
 
-  //   // Compare password
-  //   const validPassword = await bcrypt.compare(password, user.password);
-  //   if (!validPassword) {
-  //     return res.status(400).json({ message: "Invalid email or password" });
-  //   }
+  // Compare password
+  const validPassword = await bcrypt.compare(password, user.password);
+  if (!validPassword) {
+    return res.status(400).json({ message: "Invalid email or password" });
+  }
 
-  //   // Create JWT token
-  //   const token = jwt.sign(
-  //     { email: user.email, firstName: user.firstName },
-  //     JWT_SECRET,
-  //     {
-  //       expiresIn: "1h",
-  //   // Send token back to client
-  //   res.json({ token });
-  console.log("hello from login");
-  res.send("login");
+  // Create JWT token
+  try {
+    const token = jwt.sign(
+      { email: user.email, firstName: user.firstName },
+      JWT_SECRET,
+      {
+        expiresIn: "1h",
+      }
+    );
+
+    // Send token back to client
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ message: "Error generating token" });
+  }
 });
 
 app.get("/", async (req, res) => {
