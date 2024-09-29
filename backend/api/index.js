@@ -111,7 +111,7 @@ app.post("/login", async (req, res) => {
   // Query to check user in Hasura
   const query = `
     query {
-      users(where: { email: { _eq: "${email}" } }) {
+      Users(where: { email: { _eq: "${email}" } }) {
         id
         password
         firstName
@@ -128,7 +128,7 @@ app.post("/login", async (req, res) => {
       },
     });
 
-    const users = response.data.data.users;
+    const users = response.data.data.Users;
 
     if (users.length === 0) {
       return res.status(400).json({
