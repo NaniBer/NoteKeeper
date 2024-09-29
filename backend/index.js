@@ -72,15 +72,16 @@ app.post("/login", async (req, res) => {
   //     JWT_SECRET,
   //     {
   //       expiresIn: "1h",
-  //     }
-  //   );
-
   //   // Send token back to client
   //   res.json({ token });
   console.log("hello from login");
   res.send("login");
 });
 
+app.get("/", async (req, res) => {
+  console.log("Note keepers backend production server");
+  res.send("index");
+});
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
