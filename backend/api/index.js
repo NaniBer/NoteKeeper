@@ -10,7 +10,7 @@ const app = express();
 const PORT = 5000;
 
 // JWT secret key (must match the one in Hasura's config)
-const JWT_SECRET = "your-secret-key";
+const JWT_SECRET = process.env.JWT_SECRET;
 require("dotenv").config();
 
 app.use(bodyParser.json());
@@ -88,13 +88,25 @@ app.post("/signup", async (req, res) => {
       }
     );
 
-    console.log(insertUserResponse);
-    console.log(insertUserResponse.data);
+    // Get the new user's ID from the response
+    const userId = insertUserResponse.data.data.insert_Users.returning[0].id;
 
-    // Create JWT token
-    const token = jwt.sign({ email, firstName }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
+    // Create JWT token with Hasura claims
+    const token = jwt.sign(
+      {
+        email,
+        firstName,
+        "https://hasura.io/jwt/claims": {
+          "x-hasura-default-role": "user", // Assign the default role
+          "x-hasura-allowed-roles": ["user", "admin"], // Allowed roles for this user
+          "x-hasura-user-id": userId, // Use the Hasura user ID for row-level security
+        },
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "1h", // Token expires in 1 hour
+      }
+    );
 
     // Send token back to client
     res.status(201).json({ token });
@@ -107,44 +119,54 @@ app.post("/signup", async (req, res) => {
 // Login Route
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
-  console.log("email , password", email, password);
+  console.log("email, password", email, password);
 
-  // Query to check user in Hasura
-  const query = `
-    query {
-      Users(where: { email: { _eq: "${email}" } }) {
+  // GraphQL query as a string
+  const GET_USER_BY_EMAIL = `
+    query GetUserByEmail($email: String!) {
+      Users(where: { email: { _eq: $email } }) {
         id
-        password
         firstName
         lastName
+        email
+        password
       }
     }
   `;
 
+  console.log("Hasura admin secret:", process.env.HASURA_ADMIN_SECRET);
+
   try {
-    const response = await axios.post(process.env.HASURA_GRAPHQL_ENDPOINT, {
-      query,
-      headers: {
-        "x-hasura-admin-secret": process.env.HASURA_ADMIN_SECRET,
+    const response = await axios.post(
+      process.env.HASURA_GRAPHQL_ENDPOINT,
+      {
+        query: GET_USER_BY_EMAIL,
+        variables: {
+          email: email, // Pass the email variable here
+        },
       },
-    });
-    console.log("response", response.response);
+      {
+        headers: {
+          "x-hasura-admin-secret": process.env.HASURA_ADMIN_SECRET,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-    const users = response.response.Users;
-    console.log(users);
-
-    if (users.length === 0) {
+    // Check if user exists
+    if (response.data.data.Users.length === 0) {
       return res.status(400).json({
         response: {
-          message: "Invalid email or password",
+          message: "Invalid email",
         },
       });
     }
 
-    const user = users[0];
+    const user = response.data.data.Users[0];
 
     // Compare password using bcrypt
     const validPassword = await bcrypt.compare(password, user.password);
+    console.log("ValidPassword", validPassword);
     if (!validPassword) {
       return res.status(400).json({
         response: {
@@ -153,18 +175,27 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    // Create JWT token
+    // Create JWT token with Hasura claims
     const token = jwt.sign(
-      { email: user.email, firstName: user.firstName },
-      JWT_SECRET,
-      { expiresIn: "1h" }
+      {
+        email: user.email,
+        firstName: user.firstName,
+        "https://hasura.io/jwt/claims": {
+          "x-hasura-default-role": "user", // Default role assigned to the user
+          "x-hasura-allowed-roles": ["user", "admin"], // Allowed roles for this user
+          "x-hasura-user-id": user.id, // User ID for Hasura row-level security
+        },
+      },
+      process.env.JWT_SECRET, // Use environment variable for JWT secret
+      { expiresIn: "1h" } // Token expiration time
     );
 
     // Send token back to client
     return res.status(200).json({
       response: {
         message: "Login successful",
-        token,
+        token, // JWT token
+        userId: user.id, // User ID for client-side use
       },
     });
   } catch (error) {
